@@ -1,26 +1,73 @@
 @import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@plugin "@tailwindcss/typography";
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-fraunces);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@theme {
+  --color-brand-50: #eefbf8;
+  --color-brand-100: #d5f4ee;
+  --color-brand-200: #aee8dd;
+  --color-brand-300: #7ad5c7;
+  --color-brand-400: #45b9ab;
+  --color-brand-500: #259d91;
+  --color-brand-600: #197e76;
+  --color-brand-700: #186560;
+  --color-brand-800: #17514e;
+  --color-brand-900: #174441;
+  --color-brand-950: #072827;
+}
+
+:root {
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #f7f8f7;
+  color: #1c2321;
+}
+
+/* Barra de rolagem discreta */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #cfd8d6 transparent;
+}
+
+/* Cartão com efeito de virar */
+.flip {
+  perspective: 1400px;
+}
+.flip-inner {
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-style: preserve-3d;
+}
+.flip-inner.flipped {
+  transform: rotateY(180deg);
+}
+.flip-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-back {
+  transform: rotateY(180deg);
+}
+
+/* Cursor piscando durante o streaming */
+.streaming-caret::after {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: var(--color-brand-500);
+  animation: blink 1s steps(2, start) infinite;
+}
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
 }
