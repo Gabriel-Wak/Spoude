@@ -1,5 +1,5 @@
 import { embed } from "./openai";
-import { getChunks, getDocumentMap } from "./store";
+import { getLibrary } from "./store";
 import type { Source } from "./types";
 
 function cosine(a: number[], b: number[]): number {
@@ -23,11 +23,10 @@ export async function retrieve(
   opts: { docIds?: string[]; k?: number; minScore?: number } = {},
 ): Promise<Source[]> {
   const { docIds, k = 6, minScore = 0.35 } = opts;
-  const chunks = await getChunks(docIds);
+  const { chunks, docs } = await getLibrary(docIds);
   if (chunks.length === 0) return [];
 
   const [q] = await embed([query]);
-  const docs = await getDocumentMap();
 
   const scored = chunks
     .map((c) => ({ c, score: cosine(q, c.embedding) }))

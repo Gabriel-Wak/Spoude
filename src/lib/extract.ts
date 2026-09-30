@@ -2,7 +2,8 @@ import { extractText, getDocumentProxy } from "unpdf";
 import mammoth from "mammoth";
 
 export const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".txt", ".md"];
-export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+// Na Vercel o corpo da requisição de uma função é limitado a ~4,5 MB.
+export const MAX_UPLOAD_BYTES = (process.env.VERCEL ? 4 : 25) * 1024 * 1024;
 
 export interface Extracted {
   text: string;

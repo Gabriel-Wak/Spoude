@@ -24,6 +24,8 @@ export function SpoudeApp() {
   const [activeId, setActiveId] = useState<string>(() => uid());
   const [documents, setDocuments] = useState<LibraryDocument[]>([]);
   const [configured, setConfigured] = useState(true);
+  const [maxUploadMB, setMaxUploadMB] = useState(25);
+  const [storageMissing, setStorageMissing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const loadDocuments = useCallback(async () => {
@@ -41,7 +43,11 @@ export function SpoudeApp() {
       .catch(() => {});
     fetch("/api/health")
       .then((r) => r.json())
-      .then((d) => setConfigured(Boolean(d.configured)))
+      .then((d) => {
+        setConfigured(Boolean(d.configured));
+        if (d.maxUploadMB) setMaxUploadMB(d.maxUploadMB);
+        setStorageMissing(d.storage === "none");
+      })
       .catch(() => {});
   }, []);
 
@@ -101,9 +107,16 @@ export function SpoudeApp() {
           </div>
         )}
 
+        {storageMissing && (
+          <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Biblioteca indisponível: conecte um Vercel Blob Store ao projeto (Storage → Blob) e faça um novo deploy.
+          </div>
+        )}
+
         <div className="min-h-0 flex-1">
           {view === "chat" && <ChatView key={activeId} conversationId={activeId} docCount={documents.length} />}
-          {view === "library" && <LibraryView documents={documents} onChange={loadDocuments} />}
+          {view === "library" && <LibraryView documents={documents} onChange={loadDocuments} maxUploadMB={maxUploadMB} />}
           {view === "summary" && <SummaryView docCount={documents.length} onOpenFlashcards={() => go("flashcards")} />}
           {view === "flashcards" && <FlashcardsView docCount={documents.length} />}
         </div>

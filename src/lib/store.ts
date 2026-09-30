@@ -1,9 +1,12 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { get, put } from "@vercel/blob";
 import type { Chunk, LibraryDocument } from "./types";
 
 /**
- * Base vetorial local em arquivo JSON — suficiente para a versão beta.
+ * Base vetorial da biblioteca — suficiente para a versão beta.
+ * - Com BLOB_READ_WRITE_TOKEN (Vercel): um JSON privado no Vercel Blob.
+ * - Sem ele (desenvolvimento local): data/library.json.
  * Em produção, trocar por Postgres + pgvector (ou similar) mantendo esta interface.
  */
 interface StoreData {
@@ -11,27 +14,47 @@ interface StoreData {
   chunks: Chunk[];
 }
 
+const useBlob = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+const BLOB_PATH = "spoude/library.json";
 const DATA_DIR = path.join(process.cwd(), "data");
 const FILE = path.join(DATA_DIR, "library.json");
 
 let cache: StoreData | null = null;
 let writeQueue: Promise<void> = Promise.resolve();
 
+const empty = (): StoreData => ({ documents: [], chunks: [] });
+
 async function load(): Promise<StoreData> {
+  if (useBlob) {
+    // Funções serverless podem rodar em várias instâncias: sempre lê a versão mais recente.
+    const res = await get(BLOB_PATH, { access: "private", useCache: false });
+    if (!res || res.statusCode !== 200) return empty();
+    return (await new Response(res.stream).json()) as StoreData;
+  }
   if (cache) return cache;
   try {
     cache = JSON.parse(await fs.readFile(FILE, "utf-8")) as StoreData;
   } catch {
-    cache = { documents: [], chunks: [] };
+    cache = empty();
   }
   return cache;
 }
 
 function persist(data: StoreData): Promise<void> {
   writeQueue = writeQueue.then(async () => {
+    const json = JSON.stringify(data);
+    if (useBlob) {
+      await put(BLOB_PATH, json, {
+        access: "private",
+        allowOverwrite: true,
+        addRandomSuffix: false,
+        contentType: "application/json",
+      });
+      return;
+    }
     await fs.mkdir(DATA_DIR, { recursive: true });
     const tmp = FILE + ".tmp";
-    await fs.writeFile(tmp, JSON.stringify(data));
+    await fs.writeFile(tmp, json);
     await fs.rename(tmp, FILE);
   });
   return writeQueue;
@@ -45,7 +68,10 @@ export async function listDocuments(): Promise<LibraryDocument[]> {
 export async function addDocument(doc: LibraryDocument, chunks: Chunk[]) {
   const data = await load();
   data.documents.push(doc);
-  data.chunks.push(...chunks);
+  // Arredonda os vetores para reduzir o tamanho do arquivo sem afetar a busca.
+  data.chunks.push(
+    ...chunks.map((c) => ({ ...c, embedding: c.embedding.map((v) => Math.round(v * 1e5) / 1e5) })),
+  );
   await persist(data);
 }
 
@@ -59,14 +85,12 @@ export async function deleteDocument(id: string): Promise<boolean> {
   return true;
 }
 
-export async function getChunks(docIds?: string[]): Promise<Chunk[]> {
+/** Trechos (opcionalmente filtrados por documento) e mapa de documentos, numa única leitura. */
+export async function getLibrary(docIds?: string[]) {
   const data = await load();
-  if (!docIds || docIds.length === 0) return data.chunks;
-  const set = new Set(docIds);
-  return data.chunks.filter((c) => set.has(c.docId));
-}
-
-export async function getDocumentMap(): Promise<Map<string, LibraryDocument>> {
-  const data = await load();
-  return new Map(data.documents.map((d) => [d.id, d]));
+  const set = docIds?.length ? new Set(docIds) : null;
+  return {
+    chunks: set ? data.chunks.filter((c) => set.has(c.docId)) : data.chunks,
+    docs: new Map(data.documents.map((d) => [d.id, d])),
+  };
 }

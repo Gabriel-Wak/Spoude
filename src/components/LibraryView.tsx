@@ -34,9 +34,11 @@ interface Upload {
 export function LibraryView({
   documents,
   onChange,
+  maxUploadMB,
 }: {
   documents: LibraryDocument[];
   onChange: () => void;
+  maxUploadMB: number;
 }) {
   const [kind, setKind] = useState<DocumentKind>("livro");
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -45,6 +47,13 @@ export function LibraryView({
 
   const uploadFiles = async (files: FileList | File[]) => {
     for (const file of Array.from(files)) {
+      if (file.size > maxUploadMB * 1024 * 1024) {
+        setUploads((u) => [
+          ...u,
+          { name: file.name, status: "error", message: `Arquivo acima de ${maxUploadMB} MB.` },
+        ]);
+        continue;
+      }
       setUploads((u) => [...u, { name: file.name, status: "uploading" }]);
       const form = new FormData();
       form.append("file", file);
@@ -123,7 +132,7 @@ export function LibraryView({
             Arraste arquivos aqui ou clique para selecionar
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            PDF, DOCX, TXT ou MD · até 25 MB · serão marcados como “{KINDS.find((k) => k.id === kind)?.label}”
+            PDF, DOCX, TXT ou MD · até {maxUploadMB} MB · serão marcados como “{KINDS.find((k) => k.id === kind)?.label}”
           </p>
           <input
             ref={inputRef}
